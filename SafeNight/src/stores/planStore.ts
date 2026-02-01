@@ -147,6 +147,7 @@ export const usePlanStore = create<PlanState>((set, get) => ({
   },
 
   addVenue: (planId, venue) => {
+    console.log(`[PlanStore] Adding venue ${venue.name} (${venue.id}) to plan ${planId}`);
     set((state) => ({
       plans: state.plans.map((p) =>
         p.id === planId ? { ...p, venues: [...p.venues, venue] } : p
@@ -168,9 +169,9 @@ export const usePlanStore = create<PlanState>((set, get) => ({
       currentPlan:
         state.currentPlan?.id === planId
           ? {
-              ...state.currentPlan,
-              venues: state.currentPlan.venues.filter((v) => v.id !== venueId),
-            }
+            ...state.currentPlan,
+            venues: state.currentPlan.venues.filter((v) => v.id !== venueId),
+          }
           : state.currentPlan,
     }));
   },

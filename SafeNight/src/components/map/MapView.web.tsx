@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Venue } from '../../types';
 import { Colors, Shadows, BorderRadius, Spacing, Typography } from '../ui/theme';
 
@@ -34,7 +34,7 @@ interface PlatformMapProps {
 const createMarkerIcon = (L: LeafletType, color: string, isSelected: boolean) => {
   const size = isSelected ? 36 : 28;
   const borderWidth = isSelected ? 3 : 2;
-  
+
   return L.divIcon({
     className: 'custom-marker',
     html: `
@@ -86,10 +86,10 @@ export const PlatformMap: React.FC<PlatformMapProps> = ({
   useEffect(() => {
     // Only run in browser environment
     if (typeof window === 'undefined') return;
-    
+
     // Inject CSS first
     injectLeafletCSS();
-    
+
     // Dynamically import Leaflet
     import('leaflet').then((L) => {
       setLeaflet(L.default || L);
@@ -140,7 +140,7 @@ export const PlatformMap: React.FC<PlatformMapProps> = ({
     venues.forEach((venue) => {
       const color = getCrowdColor(venue.crowdLevel);
       const isSelected = selectedVenueId === venue.id;
-      
+
       const marker = leaflet.marker([venue.latitude, venue.longitude], {
         icon: createMarkerIcon(leaflet, color, isSelected),
       });
@@ -151,16 +151,56 @@ export const PlatformMap: React.FC<PlatformMapProps> = ({
     });
   }, [leaflet, venues, selectedVenueId, getCrowdColor, onVenueSelect]);
 
+  // Show a loading/fallback view while Leaflet loads
+  if (!leaflet) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingTitle}>🗺️ Loading Map...</Text>
+          <Text style={styles.loadingSubtitle}>{venues.length} venues in Blacksburg</Text>
+          {/* Show venue markers as visual fallback */}
+          <View style={styles.fallbackGrid}>
+            {venues.slice(0, 6).map((venue) => (
+              <TouchableOpacity
+                key={venue.id}
+                style={[styles.fallbackVenue, { borderColor: getCrowdColor(venue.crowdLevel) }]}
+                onPress={() => onVenueSelect(venue)}
+              >
+                <Text style={styles.fallbackVenueName}>{venue.name}</Text>
+                <View style={[styles.fallbackDot, { backgroundColor: getCrowdColor(venue.crowdLevel) }]} />
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+        {/* Legend */}
+        <View style={styles.legend}>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: Colors.danger }]} />
+            <Text style={styles.legendText}>High</Text>
+          </View>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: Colors.caution }]} />
+            <Text style={styles.legendText}>Medium</Text>
+          </View>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: Colors.safe }]} />
+            <Text style={styles.legendText}>Low</Text>
+          </View>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       {/* Leaflet map container */}
-      <div 
-        ref={mapContainerRef} 
-        style={{ 
-          width: '100%', 
+      <div
+        ref={mapContainerRef}
+        style={{
+          width: '100%',
           height: '100%',
           borderRadius: BorderRadius.xl,
-        }} 
+        }}
       />
 
       {/* Legend */}
@@ -217,5 +257,48 @@ const styles = StyleSheet.create({
   legendText: {
     color: Colors.text,
     fontSize: Typography.xs,
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: Spacing.lg,
+  },
+  loadingTitle: {
+    color: Colors.text,
+    fontSize: Typography.xl,
+    fontWeight: '600',
+    marginBottom: Spacing.sm,
+  },
+  loadingSubtitle: {
+    color: Colors.textMuted,
+    fontSize: Typography.sm,
+    marginBottom: Spacing.lg,
+  },
+  fallbackGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+    maxWidth: 400,
+  },
+  fallbackVenue: {
+    backgroundColor: Colors.surface,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    borderWidth: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+  },
+  fallbackVenueName: {
+    color: Colors.text,
+    fontSize: Typography.sm,
+  },
+  fallbackDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
 });

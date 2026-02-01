@@ -8,21 +8,72 @@ import {
   ScrollView,
   Platform,
   Linking,
+  Alert,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { DEMO_VENUES } from '../../src/assets/data/venues';
 import { Venue } from '../../src/types';
 import { Colors, BorderRadius, Typography, Spacing, Shadows } from '../../src/components/ui/theme';
-// Platform-specific map: MapView.native.tsx on iOS/Android, MapView.web.tsx on web
-import { PlatformMap } from '../../src/components/map/MapView';
+import { usePlanStore } from '../../src/stores/planStore';
+// Web-specific map import (for proper Leaflet support)
+import { PlatformMap } from '../../src/components/map/MapView.web';
+
+type FilterType = 'all' | 'women_owned' | 'security' | 'low_crowd';
 
 export default function MapScreen() {
+  const router = useRouter();
   const [selectedVenue, setSelectedVenue] = useState<Venue | null>(null);
-  const [venues, setVenues] = useState<Venue[]>(DEMO_VENUES);
+  const [filter, setFilter] = useState<FilterType>('all');
   const [viewMode, setViewMode] = useState<'list' | 'map'>('map');
 
-  // Use static crowd levels from venue data
+  const { currentPlan, addVenue } = usePlanStore();
 
+  // Apply filters
+  const filteredVenues = DEMO_VENUES.filter((venue) => {
+    switch (filter) {
+      case 'women_owned':
+        return venue.womenOwned;
+      case 'security':
+        return venue.hasSecurityStaff;
+      case 'low_crowd':
+        return venue.crowdLevel === 'low';
+      default:
+        return true;
+    }
+  });
+
+  const handleAddToPlan = (venue: Venue) => {
+    if (!currentPlan) {
+      Alert.alert(
+        'No Active Plan',
+        'Create a night plan first before adding venues.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    // Check if venue is already in plan
+    const exists = currentPlan.venues.some(v => v.id === venue.id);
+    if (exists) {
+      Alert.alert('Already Added', `${venue.name} is already in your plan.`);
+      return;
+    }
+
+    addVenue(currentPlan.id, venue);
+
+    Alert.alert(
+      'Added!',
+      `${venue.name} added to your plan.`,
+      [
+        { text: 'OK', style: 'cancel' },
+        {
+          text: 'View Plan',
+          onPress: () => router.push('/plan')
+        }
+      ]
+    );
+  };
 
   const getCrowdColor = (level?: Venue['crowdLevel']) => {
     switch (level) {
@@ -52,10 +103,53 @@ export default function MapScreen() {
     }
   };
 
+  // Filter chips component
+  const renderFilters = () => (
+    <View style={styles.filtersContainer}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>
+        <TouchableOpacity
+          style={[styles.filterChip, filter === 'all' && styles.filterChipActive]}
+          onPress={() => setFilter('all')}
+        >
+          <Text style={[styles.filterText, filter === 'all' && styles.filterTextActive]}>
+            All
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.filterChip, filter === 'women_owned' && styles.filterChipActive]}
+          onPress={() => setFilter('women_owned')}
+        >
+          <Ionicons name="heart" size={14} color={filter === 'women_owned' ? Colors.white : Colors.secondary} />
+          <Text style={[styles.filterText, filter === 'women_owned' && styles.filterTextActive]}>
+            Women-Owned
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.filterChip, filter === 'security' && styles.filterChipActive]}
+          onPress={() => setFilter('security')}
+        >
+          <Ionicons name="shield-checkmark" size={14} color={filter === 'security' ? Colors.white : Colors.safe} />
+          <Text style={[styles.filterText, filter === 'security' && styles.filterTextActive]}>
+            Security
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.filterChip, filter === 'low_crowd' && styles.filterChipActive]}
+          onPress={() => setFilter('low_crowd')}
+        >
+          <Ionicons name="people" size={14} color={filter === 'low_crowd' ? Colors.white : Colors.primary} />
+          <Text style={[styles.filterText, filter === 'low_crowd' && styles.filterTextActive]}>
+            Low Crowd
+          </Text>
+        </TouchableOpacity>
+      </ScrollView>
+    </View>
+  );
+
   // Map rendering - automatically uses native or web version based on platform
   const renderMap = () => (
     <PlatformMap
-      venues={venues}
+      venues={filteredVenues}
       selectedVenueId={selectedVenue?.id}
       onVenueSelect={setSelectedVenue}
       getCrowdColor={getCrowdColor}
@@ -133,7 +227,7 @@ export default function MapScreen() {
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.venueActionButton, styles.venueActionSecondary]}
-            onPress={() => console.log('Added to plan:', selectedVenue?.name)}
+            onPress={() => selectedVenue && handleAddToPlan(selectedVenue)}
           >
             <Ionicons name="add-circle" size={20} color={Colors.primary} />
             <Text style={[styles.venueActionText, { color: Colors.primary }]}>Add to Plan</Text>
@@ -150,11 +244,11 @@ export default function MapScreen() {
         <Ionicons name="map" size={48} color={Colors.primary} />
         <Text style={styles.listHeaderTitle}>Nearby Venues</Text>
         <Text style={styles.listHeaderSubtitle}>
-          {venues.length} venues found
+          {filteredVenues.length} venues found
         </Text>
       </View>
 
-      {venues.map((venue) => (
+      {filteredVenues.map((venue: Venue) => (
         <TouchableOpacity
           key={venue.id}
           style={[
@@ -207,6 +301,8 @@ export default function MapScreen() {
           <Text style={styles.viewToggleText}>{viewMode === 'list' ? 'Map' : 'List'}</Text>
         </TouchableOpacity>
       </View>
+
+      {renderFilters()}
 
       {viewMode === 'list' ? renderVenueList() : renderMap()}
       {renderVenueCard()}
@@ -411,5 +507,34 @@ const styles = StyleSheet.create({
   },
   bottomPadding: {
     height: 100,
+  },
+  filtersContainer: {
+    paddingVertical: Spacing.sm,
+    backgroundColor: Colors.background,
+  },
+  filters: {
+    paddingHorizontal: Spacing.md,
+    gap: Spacing.sm,
+  },
+  filterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.surface,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.full,
+    gap: Spacing.xs,
+    ...Shadows.sm,
+  },
+  filterChipActive: {
+    backgroundColor: Colors.primary,
+  },
+  filterText: {
+    color: Colors.textSecondary,
+    fontSize: Typography.sm,
+    fontWeight: Typography.medium,
+  },
+  filterTextActive: {
+    color: Colors.white,
   },
 });

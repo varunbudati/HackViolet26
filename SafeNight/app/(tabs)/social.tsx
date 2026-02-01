@@ -21,11 +21,23 @@ import { useSocialStore } from '../../src/stores/socialStore';
 import { useAuthStore } from '../../src/stores/authStore';
 import { RideRequest, SocialPost } from '../../src/types';
 import { Colors, BorderRadius, Typography, Spacing, Shadows, Gradients } from '../../src/components/ui/theme';
-import { getConversations, ConversationPreview } from '../../src/services/api/messages';
+import { getConversations, ConversationPreview, startMessageSimulation, stopMessageSimulation } from '../../src/services/api/messages';
 
 export default function SocialScreen() {
   const { user, loadDemoUser } = useAuthStore();
-  const { posts, rideRequests, createRideRequest, getOpenRideRequests, matchRideRequest, getUserRideRequests, loadRides, isLoading } = useSocialStore();
+  const {
+    posts,
+    rideRequests,
+    createRideRequest,
+    getOpenRideRequests,
+    matchRideRequest,
+    getUserRideRequests,
+    loadRides,
+    isLoading,
+    isSimulating,
+    startSimulation,
+    stopSimulation
+  } = useSocialStore();
   const [activeTab, setActiveTab] = useState<'feed' | 'rides' | 'messages'>('feed');
   const [showCreateRide, setShowCreateRide] = useState(false);
 
@@ -70,13 +82,13 @@ export default function SocialScreen() {
 
   const loadConversations = async () => {
     // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/eec1a0c1-ad0c-483b-a634-e803659aaf43',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'social.tsx:loadConversations:entry',message:'loadConversations called',data:{userId:user?.id,activeTab},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H4'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7242/ingest/eec1a0c1-ad0c-483b-a634-e803659aaf43', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'social.tsx:loadConversations:entry', message: 'loadConversations called', data: { userId: user?.id, activeTab }, timestamp: Date.now(), sessionId: 'debug-session', hypothesisId: 'H4' }) }).catch(() => { });
     // #endregion
     setLoadingConversations(true);
     try {
       const convos = await getConversations(user?.id);
       // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/eec1a0c1-ad0c-483b-a634-e803659aaf43',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'social.tsx:loadConversations:result',message:'Conversations loaded',data:{count:convos.length,convos:convos.map(c=>({id:c.conversationId,name:c.otherUserName}))},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H4'})}).catch(()=>{});
+      fetch('http://127.0.0.1:7242/ingest/eec1a0c1-ad0c-483b-a634-e803659aaf43', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'social.tsx:loadConversations:result', message: 'Conversations loaded', data: { count: convos.length, convos: convos.map(c => ({ id: c.conversationId, name: c.otherUserName })) }, timestamp: Date.now(), sessionId: 'debug-session', hypothesisId: 'H4' }) }).catch(() => { });
       // #endregion
       setConversations(convos);
     } catch (error) {
@@ -220,7 +232,7 @@ export default function SocialScreen() {
               <Text style={styles.rideLocation}>{post.rideRequest.toLocation}</Text>
             </View>
           </View>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.respondButton}
             onPress={() => handleRespondToRide(post.rideRequest!)}
           >
@@ -271,7 +283,7 @@ export default function SocialScreen() {
         </View>
       </View>
 
-      <TouchableOpacity 
+      <TouchableOpacity
         style={[
           styles.connectButton,
           ride.status === 'matched' && styles.connectButtonMatched
@@ -279,10 +291,10 @@ export default function SocialScreen() {
         onPress={() => handleConnect(ride)}
         disabled={ride.status === 'matched'}
       >
-        <Ionicons 
-          name={ride.status === 'matched' ? 'checkmark-circle' : 'chatbubble'} 
-          size={16} 
-          color={Colors.white} 
+        <Ionicons
+          name={ride.status === 'matched' ? 'checkmark-circle' : 'chatbubble'}
+          size={16}
+          color={Colors.white}
         />
         <Text style={styles.connectButtonText}>
           {ride.status === 'matched' ? 'Connected' : 'Connect'}
@@ -338,12 +350,12 @@ export default function SocialScreen() {
     <View key={ride.id} style={styles.myRideCard}>
       <View style={styles.myRideHeader}>
         <View style={[styles.myRideStatusBadge, {
-          backgroundColor: ride.status === 'open' ? Colors.primary + '20' : 
-                          ride.status === 'matched' ? Colors.safe + '20' : Colors.textMuted + '20'
+          backgroundColor: ride.status === 'open' ? Colors.primary + '20' :
+            ride.status === 'matched' ? Colors.safe + '20' : Colors.textMuted + '20'
         }]}>
           <Text style={[styles.myRideStatusText, {
-            color: ride.status === 'open' ? Colors.primary : 
-                   ride.status === 'matched' ? Colors.safe : Colors.textMuted
+            color: ride.status === 'open' ? Colors.primary :
+              ride.status === 'matched' ? Colors.safe : Colors.textMuted
           }]}>
             {ride.status.charAt(0).toUpperCase() + ride.status.slice(1)}
           </Text>
@@ -377,6 +389,19 @@ export default function SocialScreen() {
     </View>
   );
 
+  // Handle toggling simulation
+  const handleToggleSimulation = () => {
+    if (isSimulating) {
+      stopSimulation();
+      stopMessageSimulation();
+    } else {
+      startSimulation();
+      if (user?.id) {
+        startMessageSimulation(user.id);
+      }
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
@@ -386,8 +411,26 @@ export default function SocialScreen() {
         end={{ x: 1, y: 1 }}
         style={styles.header}
       >
-        <Text style={styles.headerTitle}>Community</Text>
-        <Text style={styles.headerSubtitle}>Connect with others for safer nights</Text>
+        <View style={styles.headerRow}>
+          <View>
+            <Text style={styles.headerTitle}>Community</Text>
+            <Text style={styles.headerSubtitle}>Connect with others for safer nights</Text>
+          </View>
+          {/* Simulation Toggle Button */}
+          <TouchableOpacity
+            style={[styles.simButton, isSimulating && styles.simButtonActive]}
+            onPress={handleToggleSimulation}
+          >
+            <Ionicons
+              name={isSimulating ? 'pause' : 'play'}
+              size={14}
+              color={isSimulating ? Colors.white : Colors.primary}
+            />
+            <Text style={[styles.simButtonText, isSimulating && styles.simButtonTextActive]}>
+              {isSimulating ? 'Live' : 'Demo'}
+            </Text>
+          </TouchableOpacity>
+        </View>
       </LinearGradient>
 
       {/* Tabs */}
@@ -448,7 +491,7 @@ export default function SocialScreen() {
       {/* Content */}
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {activeTab === 'feed' && posts.map(renderPost)}
-        
+
         {activeTab === 'rides' && (
           <>
             {/* Create Ride Button */}
@@ -507,7 +550,7 @@ export default function SocialScreen() {
             )}
           </>
         )}
-        
+
         <View style={styles.bottomPadding} />
       </ScrollView>
 
@@ -611,6 +654,31 @@ const styles = StyleSheet.create({
     fontSize: Typography.base,
     opacity: 0.9,
     marginTop: 4,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  simButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.full,
+    gap: Spacing.xs,
+  },
+  simButtonActive: {
+    backgroundColor: Colors.safe,
+  },
+  simButtonText: {
+    color: Colors.primary,
+    fontSize: Typography.xs,
+    fontWeight: Typography.semibold,
+  },
+  simButtonTextActive: {
+    color: Colors.white,
   },
   tabs: {
     flexDirection: 'row',
