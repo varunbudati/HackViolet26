@@ -5,6 +5,8 @@ import cors from 'cors';
 import { connect as connectSnowflake } from './services/snowflake';
 import authRoutes from './routes/auth';
 import usersRoutes from './routes/users';
+import messagesRoutes from './routes/messages';
+import ridesRoutes from './routes/rides';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -16,6 +18,8 @@ app.use(express.json());
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', usersRoutes);
+app.use('/api/messages', messagesRoutes);
+app.use('/api/rides', ridesRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

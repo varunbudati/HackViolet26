@@ -102,15 +102,18 @@ router.post('/signup', async (req: Request, res: Response) => {
 // POST /api/auth/signin
 router.post('/signin', async (req: Request, res: Response) => {
   try {
+    console.log('Signin request body:', req.body);
     const { email, password } = req.body;
 
     if (!email || !password) {
+      console.log('Missing fields - email:', !!email, 'password:', !!password);
       res.status(400).json({ error: 'Email and password are required' });
       return;
     }
 
     // If Snowflake not connected, return demo user
     if (!isConnected()) {
+      console.log('Snowflake not connected, using demo user');
       const token = generateToken({ userId: DEMO_USER.id, email });
       res.json({
         token,
@@ -121,6 +124,7 @@ router.post('/signin', async (req: Request, res: Response) => {
 
     // Find user by email
     const user = await getUserByEmail(email);
+    console.log('User lookup result:', user ? 'found' : 'not found', 'for email:', email);
     if (!user) {
       res.status(401).json({ error: 'Invalid email or password' });
       return;
@@ -128,6 +132,7 @@ router.post('/signin', async (req: Request, res: Response) => {
 
     // Verify password
     const validPassword = await bcrypt.compare(password, user.PASSWORD_HASH);
+    console.log('Password validation:', validPassword ? 'valid' : 'invalid');
     if (!validPassword) {
       res.status(401).json({ error: 'Invalid email or password' });
       return;

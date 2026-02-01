@@ -276,13 +276,13 @@ Only respond with the JSON, no other text.`;
 export const estimateBAC = async (
   drinks: Drink[],
   weightLbs: number,
-  gender: 'female' | 'male' | 'other'
+  gender: 'female' | 'other'
 ): Promise<BACEstimate> => {
   // Use Widmark formula locally for accuracy
   // BAC = (Alcohol consumed in grams / (Body weight in grams × r)) × 100
-  // r = 0.55 for females, 0.68 for males
+  // r = 0.55 for females (using this for all as app is designed for women's safety)
 
-  const rFactor = gender === 'male' ? 0.68 : 0.55;
+  const rFactor = 0.55;
   const weightGrams = weightLbs * 453.592;
 
   // Calculate total alcohol consumed in grams

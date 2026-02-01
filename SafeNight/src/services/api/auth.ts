@@ -47,7 +47,7 @@ export const signUp = async (
     return { ...DEMO_USER, email, displayName };
   }
 
-  const response = await apiClient.post('/auth/signup', {
+  const response = await apiClient.post('/api/auth/signup', {
     email,
     password,
     displayName,
@@ -67,7 +67,7 @@ export const signIn = async (email: string, password: string): Promise<User> => 
     return { ...DEMO_USER, email };
   }
 
-  const response = await apiClient.post('/auth/signin', {
+  const response = await apiClient.post('/api/auth/signin', {
     email,
     password,
   });
@@ -86,7 +86,7 @@ export const signOut = async (): Promise<void> => {
   }
 
   try {
-    await apiClient.post('/auth/signout');
+    await apiClient.post('/api/auth/signout');
   } catch (error) {
     // Ignore signout errors - clear token anyway
   }
@@ -102,7 +102,7 @@ export const updateUserProfile = async (
     return;
   }
 
-  await apiClient.patch(`/users/${userId}`, updates);
+  await apiClient.patch(`/api/users/${userId}`, updates);
 };
 
 export const addEmergencyContact = async (
@@ -113,7 +113,7 @@ export const addEmergencyContact = async (
     return;
   }
 
-  await apiClient.post(`/users/${userId}/contacts`, {
+  await apiClient.post(`/api/users/${userId}/contacts`, {
     name: contact.name,
     phone: contact.phone,
     relationship: contact.relationship,
@@ -128,7 +128,7 @@ export const removeEmergencyContact = async (
     return;
   }
 
-  await apiClient.delete(`/users/${userId}/contacts/${contactId}`);
+  await apiClient.delete(`/api/users/${userId}/contacts/${contactId}`);
 };
 
 export const getDemoUser = (): User => DEMO_USER;

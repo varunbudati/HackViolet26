@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { User, EmergencyContact } from '../types';
 import * as authService from '../services/api/auth';
+import { useSocialStore } from './socialStore';
 
 interface AuthState {
   user: User | null;
@@ -31,6 +32,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const user = await authService.signUp(email, password, displayName);
       set({ user, isAuthenticated: true, isLoading: false });
+      // Clear demo data when real user signs up
+      useSocialStore.getState().clearAllData();
     } catch (error: any) {
       set({
         error: error.message || 'Failed to create account',
@@ -45,6 +48,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const user = await authService.signIn(email, password);
       set({ user, isAuthenticated: true, isLoading: false });
+      // Clear demo data when real user signs in
+      useSocialStore.getState().clearAllData();
     } catch (error: any) {
       set({
         error: error.message || 'Failed to sign in',
@@ -141,5 +146,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   loadDemoUser: () => {
     const demoUser = authService.getDemoUser();
     set({ user: demoUser, isAuthenticated: true, isLoading: false });
+    // Load demo data for social feed
+    useSocialStore.getState().loadDemoData();
   },
 }));

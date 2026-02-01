@@ -9,10 +9,13 @@ import {
   TextInput,
   Switch,
   Alert,
+  Image,
+  Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
 import { useAuthStore } from '../../src/stores/authStore';
 import { EmergencyContact } from '../../src/types';
 import { Colors, BorderRadius, Typography, Spacing, Shadows, Gradients } from '../../src/components/ui/theme';
@@ -67,6 +70,38 @@ export default function ProfileScreen() {
     }
   };
 
+  const pickProfileImage = async () => {
+    // Request permission
+    if (Platform.OS !== 'web') {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Required', 'Please allow access to your photo library to change your profile picture.');
+        return;
+      }
+    }
+
+    // Launch image picker
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+      base64: true,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      const imageUri = result.assets[0].uri;
+      // For demo, we'll store the URI directly
+      // In production, you'd upload to a server and store the URL
+      updateProfile({ profilePicture: imageUri });
+      Alert.alert('Success', 'Profile picture updated!');
+    }
+  };
+
+  const handleEditProfile = () => {
+    router.push('/(modals)/edit-profile');
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
@@ -78,13 +113,27 @@ export default function ProfileScreen() {
           style={styles.header}
         >
           <View style={styles.profileSection}>
-            <View style={styles.avatarLarge}>
-              <Text style={styles.avatarLargeText}>
-                {user?.displayName?.charAt(0).toUpperCase() || 'U'}
-              </Text>
-            </View>
+            <TouchableOpacity onPress={pickProfileImage} style={styles.avatarContainer}>
+              {user?.profilePicture ? (
+                <Image source={{ uri: user.profilePicture }} style={styles.avatarImage} />
+              ) : (
+                <View style={styles.avatarLarge}>
+                  <Text style={styles.avatarLargeText}>
+                    {user?.displayName?.charAt(0).toUpperCase() || 'U'}
+                  </Text>
+                </View>
+              )}
+              <View style={styles.editBadge}>
+                <Ionicons name="camera" size={14} color={Colors.white} />
+              </View>
+            </TouchableOpacity>
             <Text style={styles.userName}>{user?.displayName || 'User'}</Text>
             <Text style={styles.userEmail}>{user?.email || 'demo@safenight.app'}</Text>
+            
+            <TouchableOpacity style={styles.editProfileButton} onPress={handleEditProfile}>
+              <Ionicons name="pencil" size={14} color={Colors.white} />
+              <Text style={styles.editProfileText}>Edit Profile</Text>
+            </TouchableOpacity>
           </View>
         </LinearGradient>
 
@@ -317,6 +366,10 @@ const styles = StyleSheet.create({
   profileSection: {
     alignItems: 'center',
   },
+  avatarContainer: {
+    position: 'relative',
+    marginBottom: Spacing.md,
+  },
   avatarLarge: {
     width: 80,
     height: 80,
@@ -324,12 +377,46 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: Spacing.md,
+  },
+  avatarImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 3,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
   avatarLargeText: {
     color: Colors.white,
     fontSize: Typography['3xl'],
     fontWeight: Typography.bold,
+  },
+  editBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: Colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: Colors.white,
+  },
+  editProfileButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.full,
+    marginTop: Spacing.md,
+    gap: Spacing.xs,
+  },
+  editProfileText: {
+    color: Colors.white,
+    fontSize: Typography.sm,
+    fontWeight: Typography.medium,
   },
   userName: {
     color: Colors.white,

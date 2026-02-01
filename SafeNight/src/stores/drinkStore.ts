@@ -16,10 +16,10 @@ interface DrinkState {
 
   // User profile for BAC calculation
   userWeight: number;
-  userGender: 'female' | 'male' | 'other';
+  userGender: 'female' | 'other';
 
   // Actions
-  setUserProfile: (weight: number, gender: 'female' | 'male' | 'other') => void;
+  setUserProfile: (weight: number, gender: 'female' | 'other') => void;
   logDrinkFromText: (description: string, userId: string, planId?: string) => Promise<Drink>;
   logDrink: (drink: Omit<Drink, 'id' | 'loggedAt'>) => void;
   removeDrink: (drinkId: string) => void;

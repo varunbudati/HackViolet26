@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { RideRequest, SocialPost, RideRequestType } from '../types';
+import * as ridesApi from '../services/api/rides';
 
 interface SocialState {
   posts: SocialPost[];
@@ -8,6 +9,7 @@ interface SocialState {
   error: string | null;
 
   // Actions
+  loadRides: () => Promise<void>;
   createRideRequest: (
     userId: string,
     displayName: string,
@@ -16,15 +18,17 @@ interface SocialState {
     toLocation: string,
     departureTime: Date,
     maxPassengers?: number
-  ) => RideRequest;
-  cancelRideRequest: (requestId: string) => void;
-  matchRideRequest: (requestId: string, matchedUserId: string) => void;
-  completeRide: (requestId: string) => void;
+  ) => Promise<RideRequest>;
+  cancelRideRequest: (requestId: string) => Promise<void>;
+  matchRideRequest: (requestId: string, matchedUserId: string) => Promise<void>;
+  completeRide: (requestId: string) => Promise<void>;
   getOpenRideRequests: () => RideRequest[];
   getUserRideRequests: (userId: string) => RideRequest[];
   createPost: (post: Omit<SocialPost, 'id' | 'createdAt'>) => SocialPost;
   deletePost: (postId: string) => void;
   clearError: () => void;
+  loadDemoData: () => void;
+  clearAllData: () => void;
 }
 
 const generateId = () => Math.random().toString(36).substring(2, 15);
@@ -89,12 +93,24 @@ const DEMO_POSTS: SocialPost[] = [
 ];
 
 export const useSocialStore = create<SocialState>((set, get) => ({
-  posts: DEMO_POSTS,
-  rideRequests: DEMO_RIDE_REQUESTS,
+  posts: [],
+  rideRequests: [],
   isLoading: false,
   error: null,
 
-  createRideRequest: (
+  // Load rides from API
+  loadRides: async () => {
+    set({ isLoading: true });
+    try {
+      const rides = await ridesApi.getOpenRideRequests();
+      set({ rideRequests: rides, isLoading: false });
+    } catch (error) {
+      console.error('Failed to load rides:', error);
+      set({ isLoading: false });
+    }
+  },
+
+  createRideRequest: async (
     userId,
     displayName,
     type,
@@ -103,20 +119,18 @@ export const useSocialStore = create<SocialState>((set, get) => ({
     departureTime,
     maxPassengers
   ) => {
-    const request: RideRequest = {
-      id: generateId(),
+    // Create via API
+    const request = await ridesApi.createRideRequest(
       userId,
-      userDisplayName: displayName,
+      displayName,
       type,
       fromLocation,
       toLocation,
       departureTime,
-      maxPassengers,
-      status: 'open',
-      createdAt: new Date(),
-    };
+      maxPassengers
+    );
 
-    // Also create a social post for the ride request
+    // Also create a social post for the ride request (local only for now)
     const post: SocialPost = {
       id: generateId(),
       userId,
@@ -138,7 +152,8 @@ export const useSocialStore = create<SocialState>((set, get) => ({
     return request;
   },
 
-  cancelRideRequest: (requestId) => {
+  cancelRideRequest: async (requestId) => {
+    await ridesApi.cancelRideRequestApi(requestId);
     set((state) => ({
       rideRequests: state.rideRequests.map((r) =>
         r.id === requestId ? { ...r, status: 'cancelled' } : r
@@ -146,7 +161,8 @@ export const useSocialStore = create<SocialState>((set, get) => ({
     }));
   },
 
-  matchRideRequest: (requestId, matchedUserId) => {
+  matchRideRequest: async (requestId, matchedUserId) => {
+    await ridesApi.matchRideRequestApi(requestId, matchedUserId);
     set((state) => ({
       rideRequests: state.rideRequests.map((r) =>
         r.id === requestId
@@ -156,7 +172,8 @@ export const useSocialStore = create<SocialState>((set, get) => ({
     }));
   },
 
-  completeRide: (requestId) => {
+  completeRide: async (requestId) => {
+    await ridesApi.completeRideRequestApi(requestId);
     set((state) => ({
       rideRequests: state.rideRequests.map((r) =>
         r.id === requestId ? { ...r, status: 'completed' } : r
@@ -193,4 +210,20 @@ export const useSocialStore = create<SocialState>((set, get) => ({
   },
 
   clearError: () => set({ error: null }),
+
+  // Load demo data (only for demo mode)
+  loadDemoData: () => {
+    set({
+      posts: DEMO_POSTS,
+      rideRequests: DEMO_RIDE_REQUESTS,
+    });
+  },
+
+  // Clear all data (when switching from demo to real account)
+  clearAllData: () => {
+    set({
+      posts: [],
+      rideRequests: [],
+    });
+  },
 }));

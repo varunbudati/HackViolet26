@@ -14,6 +14,8 @@ export default function ModalsLayout() {
     >
       <Stack.Screen name="drink" />
       <Stack.Screen name="chat" />
+      <Stack.Screen name="edit-profile" />
+      <Stack.Screen name="direct-chat" />
     </Stack>
   );
 }

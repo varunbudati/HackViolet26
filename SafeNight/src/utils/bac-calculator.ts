@@ -18,23 +18,17 @@ const GRAMS_PER_LB = 453.592;
 interface BACCalculatorInput {
   drinks: Drink[];
   weightLbs: number;
-  gender: 'female' | 'male' | 'other';
+  gender: 'female' | 'other';
   currentTime?: Date;
 }
 
 /**
  * Get the distribution ratio based on gender
- * Females have a higher BAC per drink due to body composition
+ * Using female distribution ratio for safety-focused calculations
  */
-const getDistributionRatio = (gender: 'female' | 'male' | 'other'): number => {
-  switch (gender) {
-    case 'male':
-      return 0.68;
-    case 'female':
-    case 'other':
-    default:
-      return 0.55; // Using female ratio as default for safety
-  }
+const getDistributionRatio = (gender: 'female' | 'other'): number => {
+  // Using female ratio (0.55) for all calculations as this app is designed for women's safety
+  return 0.55;
 };
 
 /**

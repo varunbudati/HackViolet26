@@ -28,7 +28,7 @@ export default function OnboardingScreen() {
 
   // Step 3: Profile Info
   const [weight, setWeight] = useState('140');
-  const [gender, setGender] = useState<'female' | 'male' | 'other'>('female');
+  const [gender, setGender] = useState<'female' | 'other'>('female');
 
   const [isVerifying, setIsVerifying] = useState(false);
   const [isVerified, setIsVerified] = useState(false);
@@ -204,7 +204,7 @@ export default function OnboardingScreen() {
       <View style={styles.inputGroup}>
         <Text style={styles.label}>Gender</Text>
         <View style={styles.genderOptions}>
-          {(['female', 'male', 'other'] as const).map((option) => (
+          {(['female', 'other'] as const).map((option) => (
             <TouchableOpacity
               key={option}
               style={[styles.genderOption, gender === option && styles.genderOptionActive]}

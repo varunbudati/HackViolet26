@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,19 +8,25 @@ import {
   SafeAreaView,
   TextInput,
   Modal,
+  Alert,
+  Image,
+  Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
+import { router, useFocusEffect } from 'expo-router';
 import { useSocialStore } from '../../src/stores/socialStore';
 import { useAuthStore } from '../../src/stores/authStore';
 import { RideRequest, SocialPost } from '../../src/types';
 import { Colors, BorderRadius, Typography, Spacing, Shadows, Gradients } from '../../src/components/ui/theme';
+import { getConversations, ConversationPreview } from '../../src/services/api/messages';
 
 export default function SocialScreen() {
-  const { user } = useAuthStore();
-  const { posts, rideRequests, createRideRequest, getOpenRideRequests } = useSocialStore();
-  const [activeTab, setActiveTab] = useState<'feed' | 'rides'>('feed');
+  const { user, loadDemoUser } = useAuthStore();
+  const { posts, rideRequests, createRideRequest, getOpenRideRequests, matchRideRequest, getUserRideRequests, loadRides, isLoading } = useSocialStore();
+  const [activeTab, setActiveTab] = useState<'feed' | 'rides' | 'messages'>('feed');
   const [showCreateRide, setShowCreateRide] = useState(false);
 
   // Ride request form state
@@ -28,12 +34,131 @@ export default function SocialScreen() {
   const [fromLocation, setFromLocation] = useState('');
   const [toLocation, setToLocation] = useState('');
 
-  const openRides = getOpenRideRequests();
+  // Messages state
+  const [conversations, setConversations] = useState<ConversationPreview[]>([]);
+  const [loadingConversations, setLoadingConversations] = useState(false);
 
-  const handleCreateRide = () => {
+  // Auto-load demo user for hackathon demo if not authenticated
+  useEffect(() => {
+    if (!user) {
+      loadDemoUser();
+    }
+  }, [user, loadDemoUser]);
+
+  // Load rides when component mounts or rides tab is active
+  useEffect(() => {
+    if (activeTab === 'rides' || activeTab === 'feed') {
+      loadRides();
+    }
+  }, [activeTab, loadRides]);
+
+  // Load conversations when Messages tab is active
+  useEffect(() => {
+    if (activeTab === 'messages') {
+      loadConversations();
+    }
+  }, [activeTab]);
+
+  // Reload conversations when screen comes back into focus (e.g., returning from chat)
+  useFocusEffect(
+    useCallback(() => {
+      if (activeTab === 'messages' && user?.id) {
+        loadConversations();
+      }
+    }, [activeTab, user?.id])
+  );
+
+  const loadConversations = async () => {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/eec1a0c1-ad0c-483b-a634-e803659aaf43',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'social.tsx:loadConversations:entry',message:'loadConversations called',data:{userId:user?.id,activeTab},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H4'})}).catch(()=>{});
+    // #endregion
+    setLoadingConversations(true);
+    try {
+      const convos = await getConversations(user?.id);
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/eec1a0c1-ad0c-483b-a634-e803659aaf43',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'social.tsx:loadConversations:result',message:'Conversations loaded',data:{count:convos.length,convos:convos.map(c=>({id:c.conversationId,name:c.otherUserName}))},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H4'})}).catch(()=>{});
+      // #endregion
+      setConversations(convos);
+    } catch (error) {
+      console.error('Failed to load conversations:', error);
+    } finally {
+      setLoadingConversations(false);
+    }
+  };
+
+  const allOpenRides = getOpenRideRequests();
+  // Filter out current user's rides from available rides (you shouldn't see your own)
+  const openRides = user ? allOpenRides.filter(r => r.userId !== user.id) : allOpenRides;
+  const myRides = user ? getUserRideRequests(user.id) : [];
+
+  // Handle connecting with a ride request
+  const handleConnect = (ride: RideRequest) => {
+    if (!user) {
+      Alert.alert('Sign In Required', 'Please sign in to connect with other users.');
+      return;
+    }
+
+    // Don't allow connecting to your own ride
+    if (ride.userId === user.id) {
+      Alert.alert('Your Ride', 'This is your own ride request.');
+      return;
+    }
+
+    // If already matched, go directly to chat
+    if (ride.status === 'matched') {
+      router.push({
+        pathname: '/(modals)/direct-chat',
+        params: {
+          recipientId: ride.userId,
+          recipientName: ride.userDisplayName,
+          recipientPicture: ride.userProfilePicture || '',
+        },
+      });
+      return;
+    }
+
+    const confirmMessage = `${ride.type === 'need_ride' ? 'They need a ride' : 'They are offering a ride'} from ${ride.fromLocation} to ${ride.toLocation}.`;
+
+    const onConfirm = () => {
+      // Navigate to chat WITHOUT matching - ride stays in list until message is sent
+      router.push({
+        pathname: '/(modals)/direct-chat',
+        params: {
+          recipientId: ride.userId,
+          recipientName: ride.userDisplayName,
+          recipientPicture: ride.userProfilePicture || '',
+          rideId: ride.id, // Pass ride ID so chat can match when message is sent
+        },
+      });
+    };
+
+    // Use window.confirm on web since Alert.alert doesn't work
+    if (Platform.OS === 'web') {
+      const confirmed = window.confirm(`Connect with ${ride.userDisplayName}?\n\n${confirmMessage}`);
+      if (confirmed) {
+        onConfirm();
+      }
+    } else {
+      Alert.alert(
+        'Connect with ' + ride.userDisplayName + '?',
+        confirmMessage,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Connect', onPress: onConfirm },
+        ]
+      );
+    }
+  };
+
+  // Handle responding to a ride request in the feed
+  const handleRespondToRide = (rideRequest: RideRequest) => {
+    handleConnect(rideRequest);
+  };
+
+  const handleCreateRide = async () => {
     if (!user || !fromLocation.trim() || !toLocation.trim()) return;
 
-    createRideRequest(
+    await createRideRequest(
       user.id,
       user.displayName,
       rideType,
@@ -45,16 +170,28 @@ export default function SocialScreen() {
     setFromLocation('');
     setToLocation('');
     setShowCreateRide(false);
+    // Reload rides to show the new one
+    loadRides();
+  };
+
+  // Render avatar with optional profile picture
+  const renderAvatar = (displayName: string, profilePicture?: string) => {
+    if (profilePicture) {
+      return <Image source={{ uri: profilePicture }} style={styles.avatarImage} />;
+    }
+    return (
+      <View style={styles.avatar}>
+        <Text style={styles.avatarText}>
+          {displayName.charAt(0).toUpperCase()}
+        </Text>
+      </View>
+    );
   };
 
   const renderPost = (post: SocialPost) => (
     <View key={post.id} style={styles.postCard}>
       <View style={styles.postHeader}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>
-            {post.userDisplayName.charAt(0).toUpperCase()}
-          </Text>
-        </View>
+        {renderAvatar(post.userDisplayName, post.userProfilePicture)}
         <View style={styles.postHeaderInfo}>
           <Text style={styles.posterName}>{post.userDisplayName}</Text>
           <Text style={styles.postTime}>
@@ -83,7 +220,10 @@ export default function SocialScreen() {
               <Text style={styles.rideLocation}>{post.rideRequest.toLocation}</Text>
             </View>
           </View>
-          <TouchableOpacity style={styles.respondButton}>
+          <TouchableOpacity 
+            style={styles.respondButton}
+            onPress={() => handleRespondToRide(post.rideRequest!)}
+          >
             <Text style={styles.respondButtonText}>
               {post.rideRequest.type === 'need_ride' ? 'Offer Ride' : 'Request Spot'}
             </Text>
@@ -96,11 +236,7 @@ export default function SocialScreen() {
   const renderRideRequest = (ride: RideRequest) => (
     <View key={ride.id} style={styles.rideCard}>
       <View style={styles.rideCardHeader}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>
-            {ride.userDisplayName.charAt(0).toUpperCase()}
-          </Text>
-        </View>
+        {renderAvatar(ride.userDisplayName, ride.userProfilePicture)}
         <View style={styles.rideCardHeaderInfo}>
           <Text style={styles.riderName}>{ride.userDisplayName}</Text>
           <View style={[styles.rideTypeBadge, {
@@ -135,10 +271,109 @@ export default function SocialScreen() {
         </View>
       </View>
 
-      <TouchableOpacity style={styles.connectButton}>
-        <Ionicons name="chatbubble" size={16} color={Colors.white} />
-        <Text style={styles.connectButtonText}>Connect</Text>
+      <TouchableOpacity 
+        style={[
+          styles.connectButton,
+          ride.status === 'matched' && styles.connectButtonMatched
+        ]}
+        onPress={() => handleConnect(ride)}
+        disabled={ride.status === 'matched'}
+      >
+        <Ionicons 
+          name={ride.status === 'matched' ? 'checkmark-circle' : 'chatbubble'} 
+          size={16} 
+          color={Colors.white} 
+        />
+        <Text style={styles.connectButtonText}>
+          {ride.status === 'matched' ? 'Connected' : 'Connect'}
+        </Text>
       </TouchableOpacity>
+    </View>
+  );
+
+  const renderConversation = (conversation: ConversationPreview) => (
+    <TouchableOpacity
+      key={conversation.conversationId}
+      style={styles.conversationCard}
+      onPress={() => {
+        router.push({
+          pathname: '/(modals)/direct-chat',
+          params: {
+            recipientId: conversation.otherUserId,
+            recipientName: conversation.otherUserName,
+            recipientPicture: conversation.otherUserPicture || '',
+          },
+        });
+      }}
+    >
+      {conversation.otherUserPicture ? (
+        <Image source={{ uri: conversation.otherUserPicture }} style={styles.conversationAvatarImage} />
+      ) : (
+        <View style={styles.conversationAvatar}>
+          <Text style={styles.conversationAvatarText}>
+            {conversation.otherUserName.charAt(0).toUpperCase()}
+          </Text>
+        </View>
+      )}
+      <View style={styles.conversationInfo}>
+        <View style={styles.conversationHeader}>
+          <Text style={styles.conversationName}>{conversation.otherUserName}</Text>
+          <Text style={styles.conversationTime}>
+            {format(new Date(conversation.lastMessageAt), 'h:mm a')}
+          </Text>
+        </View>
+        <Text style={styles.conversationLastMessage} numberOfLines={1}>
+          {conversation.lastMessage}
+        </Text>
+      </View>
+      {conversation.unreadCount > 0 && (
+        <View style={styles.unreadBadge}>
+          <Text style={styles.unreadBadgeText}>{conversation.unreadCount}</Text>
+        </View>
+      )}
+    </TouchableOpacity>
+  );
+
+  const renderMyRideRequest = (ride: RideRequest) => (
+    <View key={ride.id} style={styles.myRideCard}>
+      <View style={styles.myRideHeader}>
+        <View style={[styles.myRideStatusBadge, {
+          backgroundColor: ride.status === 'open' ? Colors.primary + '20' : 
+                          ride.status === 'matched' ? Colors.safe + '20' : Colors.textMuted + '20'
+        }]}>
+          <Text style={[styles.myRideStatusText, {
+            color: ride.status === 'open' ? Colors.primary : 
+                   ride.status === 'matched' ? Colors.safe : Colors.textMuted
+          }]}>
+            {ride.status.charAt(0).toUpperCase() + ride.status.slice(1)}
+          </Text>
+        </View>
+        <Text style={styles.myRideTime}>
+          {format(new Date(ride.departureTime), 'h:mm a')}
+        </Text>
+      </View>
+      <View style={styles.myRideRoute}>
+        <Text style={styles.myRideLocation}>{ride.fromLocation}</Text>
+        <Ionicons name="arrow-forward" size={14} color={Colors.textMuted} />
+        <Text style={styles.myRideLocation}>{ride.toLocation}</Text>
+      </View>
+      {ride.status === 'matched' && (
+        <TouchableOpacity
+          style={styles.myRideChatButton}
+          onPress={() => {
+            router.push({
+              pathname: '/(modals)/direct-chat',
+              params: {
+                recipientId: ride.matchedWith || '',
+                recipientName: 'Connected User',
+              },
+            });
+          }}
+        >
+          <Ionicons name="chatbubble" size={14} color={Colors.white} />
+          <Text style={styles.myRideChatText}>Open Chat</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 
@@ -180,7 +415,7 @@ export default function SocialScreen() {
             color={activeTab === 'rides' ? Colors.primary : Colors.textMuted}
           />
           <Text style={[styles.tabText, activeTab === 'rides' && styles.tabTextActive]}>
-            Ride Share
+            Rides
           </Text>
           {openRides.length > 0 && (
             <View style={styles.rideBadge}>
@@ -188,13 +423,33 @@ export default function SocialScreen() {
             </View>
           )}
         </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'messages' && styles.tabActive]}
+          onPress={() => setActiveTab('messages')}
+        >
+          <Ionicons
+            name="chatbubbles"
+            size={18}
+            color={activeTab === 'messages' ? Colors.primary : Colors.textMuted}
+          />
+          <Text style={[styles.tabText, activeTab === 'messages' && styles.tabTextActive]}>
+            Messages
+          </Text>
+          {conversations.some(c => c.unreadCount > 0) && (
+            <View style={styles.rideBadge}>
+              <Text style={styles.rideBadgeText}>
+                {conversations.reduce((sum, c) => sum + c.unreadCount, 0)}
+              </Text>
+            </View>
+          )}
+        </TouchableOpacity>
       </View>
 
       {/* Content */}
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {activeTab === 'feed' ? (
-          posts.map(renderPost)
-        ) : (
+        {activeTab === 'feed' && posts.map(renderPost)}
+        
+        {activeTab === 'rides' && (
           <>
             {/* Create Ride Button */}
             <TouchableOpacity
@@ -212,10 +467,47 @@ export default function SocialScreen() {
               </View>
             </TouchableOpacity>
 
-            {/* Ride Requests List */}
-            {openRides.map(renderRideRequest)}
+            {/* My Ride Requests Section */}
+            {myRides.length > 0 && (
+              <View style={styles.myRidesSection}>
+                <Text style={styles.sectionTitle}>My Requests</Text>
+                {myRides.map(renderMyRideRequest)}
+              </View>
+            )}
+
+            {/* Available Ride Requests */}
+            <Text style={styles.sectionTitle}>Available Rides</Text>
+            {openRides.filter(r => r.userId !== user?.id).map(renderRideRequest)}
+            {openRides.filter(r => r.userId !== user?.id).length === 0 && (
+              <View style={styles.emptyState}>
+                <Ionicons name="car-outline" size={48} color={Colors.textMuted} />
+                <Text style={styles.emptyStateText}>No available rides right now</Text>
+              </View>
+            )}
           </>
         )}
+
+        {activeTab === 'messages' && (
+          <>
+            {loadingConversations ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator color={Colors.primary} size="large" />
+                <Text style={styles.loadingText}>Loading conversations...</Text>
+              </View>
+            ) : conversations.length > 0 ? (
+              conversations.map(renderConversation)
+            ) : (
+              <View style={styles.emptyState}>
+                <Ionicons name="chatbubbles-outline" size={48} color={Colors.textMuted} />
+                <Text style={styles.emptyStateText}>No messages yet</Text>
+                <Text style={styles.emptyStateSubtext}>
+                  Connect with someone on the Rides tab to start chatting
+                </Text>
+              </View>
+            )}
+          </>
+        )}
+        
         <View style={styles.bottomPadding} />
       </ScrollView>
 
@@ -383,6 +675,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  avatarImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: Colors.primary,
+  },
   avatarText: {
     color: Colors.white,
     fontSize: Typography.base,
@@ -540,6 +839,9 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
     gap: Spacing.xs,
   },
+  connectButtonMatched: {
+    backgroundColor: Colors.safe,
+  },
   connectButtonText: {
     color: Colors.white,
     fontSize: Typography.sm,
@@ -628,5 +930,163 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: Typography.base,
     fontWeight: Typography.bold,
+  },
+  // Messages tab styles
+  conversationCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.surface,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    marginBottom: Spacing.sm,
+    ...Shadows.sm,
+  },
+  conversationAvatar: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: Colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  conversationAvatarImage: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    borderWidth: 2,
+    borderColor: Colors.primary,
+  },
+  conversationAvatarText: {
+    color: Colors.white,
+    fontSize: Typography.lg,
+    fontWeight: Typography.bold,
+  },
+  conversationInfo: {
+    flex: 1,
+    marginLeft: Spacing.md,
+  },
+  conversationHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  conversationName: {
+    color: Colors.text,
+    fontSize: Typography.base,
+    fontWeight: Typography.semibold,
+  },
+  conversationTime: {
+    color: Colors.textMuted,
+    fontSize: Typography.xs,
+  },
+  conversationLastMessage: {
+    color: Colors.textSecondary,
+    fontSize: Typography.sm,
+  },
+  unreadBadge: {
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.full,
+    marginLeft: Spacing.sm,
+  },
+  unreadBadgeText: {
+    color: Colors.white,
+    fontSize: Typography.xs,
+    fontWeight: Typography.bold,
+  },
+  // My Rides section styles
+  myRidesSection: {
+    marginBottom: Spacing.lg,
+  },
+  sectionTitle: {
+    color: Colors.text,
+    fontSize: Typography.base,
+    fontWeight: Typography.semibold,
+    marginBottom: Spacing.sm,
+    marginTop: Spacing.md,
+  },
+  myRideCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    marginBottom: Spacing.sm,
+    borderLeftWidth: 3,
+    borderLeftColor: Colors.primary,
+  },
+  myRideHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Spacing.sm,
+  },
+  myRideStatusBadge: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.full,
+  },
+  myRideStatusText: {
+    fontSize: Typography.xs,
+    fontWeight: Typography.medium,
+  },
+  myRideTime: {
+    color: Colors.textMuted,
+    fontSize: Typography.xs,
+  },
+  myRideRoute: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  myRideLocation: {
+    color: Colors.text,
+    fontSize: Typography.sm,
+    flex: 1,
+  },
+  myRideChatButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.safe,
+    paddingVertical: Spacing.xs,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.md,
+    gap: Spacing.xs,
+    marginTop: Spacing.sm,
+  },
+  myRideChatText: {
+    color: Colors.white,
+    fontSize: Typography.sm,
+    fontWeight: Typography.medium,
+  },
+  // Empty state and loading styles
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: Spacing.xxl,
+  },
+  emptyStateText: {
+    color: Colors.textMuted,
+    fontSize: Typography.base,
+    fontWeight: Typography.medium,
+    marginTop: Spacing.md,
+  },
+  emptyStateSubtext: {
+    color: Colors.textMuted,
+    fontSize: Typography.sm,
+    textAlign: 'center',
+    marginTop: Spacing.xs,
+    maxWidth: 250,
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: Spacing.xxl,
+  },
+  loadingText: {
+    color: Colors.textMuted,
+    fontSize: Typography.sm,
+    marginTop: Spacing.md,
   },
 });

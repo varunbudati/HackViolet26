@@ -10,17 +10,21 @@ A women-first mobile safety and social companion app designed for college women 
 - **AI Safety Assistant** - Chat with an AI companion for safety tips, recommendations, and support
 - **SOS Emergency System** - Quick-access emergency features with location sharing and immutable event logging
 - **Women-Only Social Board** - Connect with verified women for ride shares and group meetups
+- **Direct Messaging** - Chat privately with other verified women in your area
+- **Ride Sharing** - Request or offer rides to/from venues with other users
 
 ## Tech Stack
 
-- **Framework:** React Native with Expo
+- **Frontend:** React Native with Expo (SDK 54)
+- **Backend:** Express.js with TypeScript
+- **Database:** Snowflake
 - **Routing:** Expo Router (file-based)
-- **Language:** TypeScript
 - **State Management:** Zustand
-- **Backend:** Firebase (Auth, Firestore)
+- **Authentication:** JWT
 - **AI:** Google Gemini API
 - **Voice:** ElevenLabs API
 - **Blockchain:** Solana (SOS event logging)
+- **Maps:** Leaflet (web), react-native-maps (native)
 
 ## Prerequisites
 
@@ -38,49 +42,79 @@ A women-first mobile safety and social companion app designed for college women 
    cd SafeNight
    ```
 
-2. **Install dependencies**
+2. **Install frontend dependencies**
    ```bash
    npm install
    ```
 
-3. **Set up environment variables**
+3. **Install backend dependencies**
    ```bash
-   cp .env.example .env
+   cd backend
+   npm install
+   cd ..
    ```
 
-   Edit `.env` and add your API keys:
+4. **Set up Snowflake database**
+   - Create a Snowflake account at [snowflake.com](https://www.snowflake.com/)
+   - Run the SQL commands in `backend/schema.sql` to create the database and tables
+
+5. **Set up environment variables**
+
+   Create `SafeNight/.env` for the frontend:
    ```env
+   # Backend API URL
+   EXPO_PUBLIC_API_URL=http://localhost:3000
+
    # Gemini AI API
    EXPO_PUBLIC_GEMINI_API_KEY=your_gemini_api_key_here
 
    # ElevenLabs Voice API
    EXPO_PUBLIC_ELEVENLABS_API_KEY=your_elevenlabs_api_key_here
+   ```
 
-   # Firebase Configuration
-   EXPO_PUBLIC_FIREBASE_API_KEY=your_firebase_api_key_here
-   EXPO_PUBLIC_FIREBASE_PROJECT_ID=your_firebase_project_id
-   EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
-   EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
-   EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
-   EXPO_PUBLIC_FIREBASE_APP_ID=your_app_id
+   Create `SafeNight/backend/.env` for the backend:
+   ```env
+   # Server
+   PORT=3000
+   JWT_SECRET=your_secure_jwt_secret_here
+
+   # Snowflake Configuration
+   SNOWFLAKE_ACCOUNT=your_account_identifier
+   SNOWFLAKE_USER=your_username
+   SNOWFLAKE_PASSWORD=your_password
+   SNOWFLAKE_ROLE=your_role
+   SNOWFLAKE_WAREHOUSE=your_warehouse
+   SNOWFLAKE_DATABASE=SAFENIGHT_DB
+   SNOWFLAKE_SCHEMA=APP_DATA
    ```
 
 ## Running the App
 
-```bash
-# Start the development server
-npm start
+You need to run both the backend and frontend servers.
 
-# Run on specific platforms
-npm run android    # Android emulator
-npm run ios        # iOS simulator
-npm run web        # Web browser
+**Terminal 1 - Start the backend:**
+```bash
+cd SafeNight/backend
+npm run dev
+```
+
+**Terminal 2 - Start the frontend:**
+```bash
+cd SafeNight
+npm start
 ```
 
 After running `npm start`, press:
 - `a` to open on Android
 - `i` to open on iOS
 - `w` to open in web browser
+
+**Run on specific platforms:**
+```bash
+npm run android    # Android emulator
+npm run ios        # iOS simulator
+npm run web        # Web browser
+```
 
 ## Demo Mode
 
@@ -94,23 +128,29 @@ SafeNight/
 │   ├── (tabs)/            # Main tab navigation
 │   ├── (auth)/            # Authentication screens
 │   └── (modals)/          # Modal screens
+├── backend/                # Express.js API server
+│   ├── src/
+│   │   ├── routes/        # API endpoints (auth, messages, rides, users)
+│   │   ├── middleware/    # JWT auth middleware
+│   │   └── services/      # Snowflake database service
+│   ├── schema.sql         # Snowflake database schema
+│   └── package.json       # Backend dependencies
 ├── src/
 │   ├── components/        # React components
 │   │   ├── ui/           # Theme and UI primitives
 │   │   ├── safety/       # Safety features (SOS, BAC)
 │   │   ├── plan/         # Night planning
-│   │   └── map/          # Map components
+│   │   └── map/          # Map components (Leaflet web, native maps)
 │   ├── services/          # API integrations
-│   │   ├── api/          # Gemini, ElevenLabs, Solana
-│   │   └── firebase/     # Firebase config & auth
+│   │   └── api/          # Auth, messages, rides, Gemini, ElevenLabs, Solana
 │   ├── stores/            # Zustand state stores
 │   ├── hooks/             # Custom React hooks
 │   ├── types/             # TypeScript definitions
 │   └── utils/             # Utility functions
 ├── assets/                 # Images and fonts
 ├── app.json               # Expo configuration
-├── .env.example           # Environment template
-└── package.json           # Dependencies
+├── .env                   # Frontend environment variables
+└── package.json           # Frontend dependencies
 ```
 
 ## API Keys Setup
@@ -118,19 +158,19 @@ SafeNight/
 ### Gemini API
 1. Visit [Google AI Studio](https://makersuite.google.com/app/apikey)
 2. Create a new API key
-3. Add to `.env` as `EXPO_PUBLIC_GEMINI_API_KEY`
+3. Add to `SafeNight/.env` as `EXPO_PUBLIC_GEMINI_API_KEY`
 
 ### ElevenLabs API
 1. Sign up at [ElevenLabs](https://elevenlabs.io/)
 2. Get your API key from the dashboard
-3. Add to `.env` as `EXPO_PUBLIC_ELEVENLABS_API_KEY`
+3. Add to `SafeNight/.env` as `EXPO_PUBLIC_ELEVENLABS_API_KEY`
 
-### Firebase
-1. Create a project at [Firebase Console](https://console.firebase.google.com/)
-2. Enable Authentication (Email/Password)
-3. Create a Firestore database
-4. Get your web app configuration
-5. Add all Firebase config values to `.env`
+### Snowflake Database
+1. Create an account at [Snowflake](https://www.snowflake.com/)
+2. Note your account identifier (e.g., `XXXXXXX-YYYYYYY`)
+3. Create a warehouse and role with appropriate permissions
+4. Run the SQL commands in `backend/schema.sql` to set up the database
+5. Add all Snowflake credentials to `SafeNight/backend/.env`
 
 ## Contributing
 

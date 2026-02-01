@@ -17,8 +17,9 @@ export interface User {
   id: string;
   email: string;
   displayName: string;
+  profilePicture?: string; // URL or base64 image data
   weight?: number; // in lbs for BAC calculation
-  gender?: 'female' | 'male' | 'other';
+  gender?: 'female' | 'other';
   emergencyContacts: EmergencyContact[];
   sosCodeWord?: string;
   settings: UserSettings;
@@ -108,6 +109,7 @@ export interface RideRequest {
   id: string;
   userId: string;
   userDisplayName: string;
+  userProfilePicture?: string; // Profile picture URL
   type: RideRequestType;
   fromLocation: string;
   toLocation: string;
@@ -122,6 +124,7 @@ export interface SocialPost {
   id: string;
   userId: string;
   userDisplayName: string;
+  userProfilePicture?: string; // Profile picture URL
   type: 'ride_request' | 'safety_tip' | 'venue_review';
   content: string;
   rideRequest?: RideRequest;
