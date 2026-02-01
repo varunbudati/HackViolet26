@@ -16,8 +16,8 @@ import { DEMO_VENUES } from '../../src/assets/data/venues';
 import { Venue } from '../../src/types';
 import { Colors, BorderRadius, Typography, Spacing, Shadows } from '../../src/components/ui/theme';
 import { usePlanStore } from '../../src/stores/planStore';
-// Web-specific map import (for proper Leaflet support)
-import { PlatformMap } from '../../src/components/map/MapView.web';
+// Generic import - Metro resolves to .web.tsx or .native.tsx
+import { PlatformMap } from '../../src/components/map/MapView';
 
 type FilterType = 'all' | 'women_owned' | 'security' | 'low_crowd';
 
