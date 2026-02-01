@@ -7,15 +7,16 @@ A women-first mobile safety and social companion app designed for college women 
 - **Night Plan & Safety Timeline** - Plan your night with natural language input, get reminder notifications, ride suggestions, and friend check-in requests
 - **Drink Tracking & BAC Estimation** - Log drinks via text or voice, get real-time BAC estimates, drink pacing suggestions, and time-to-sobriety estimates
 - **AI Safety Assistant** - Chat with an AI companion for venue recommendations, safety tips, and real-time questions like "What bars are chill right now?"
-- **Interactive Nightlife Map** - View nearby venues with crowd density, friend locations (opt-in), and real-time data
+- **Interactive Nightlife Map** - View nearby venues with crowd density, friend locations (opt-in), and real-time data. **Cross-platform support** for both Mobile (Native Maps) and Web (Leaflet).
 - **SOS Emergency Mode** - Trigger via button or voice code word, notify trusted contacts, share location, and log events immutably
-- **Women-Only Social Board** - Connect with verified women for ride shares, find friends nearby, and discover events
+- **Women-Only Social Board** - Connect with verified women for ride shares, find friends nearby, and discover events. Features a **Live Simulation Mode** for demos showing real-time posts, ride offers, and messaging.
 - **Smart Check-Ins & Escalation** - Automated safety confirmations, missed check-in detection, and optional escalation to SOS
 
 ## Tech Stack
 
 - **Framework**: React Native + Expo
 - **Routing**: Expo Router (file-based)
+- **Maps**: react-native-maps (Mobile), Leaflet (Web)
 - **Language**: TypeScript
 - **State Management**: Zustand
 - **Backend**: Vultr (hosting, geo-spatial queries)
@@ -111,6 +112,13 @@ After running `npm start`, press:
 ## Demo Mode
 
 The app runs in **demo mode** when API keys are not configured. Demo mode provides mock responses for all integrations, allowing you to explore the full UI and functionality without external service credentials.
+
+### Live Social Simulation
+The demo mode features a **Live Simulation** toggle in the Social tab. When enabled, it:
+- Generates realistic ride requests and safety posts from simulated users
+- Simulates incoming messages and conversations
+- Uses realistic user profiles and locations
+This allows for effective demonstration of the app's real-time capabilities without needing a large user base.
 
 ## Project Structure
 
