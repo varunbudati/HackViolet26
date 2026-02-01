@@ -10,7 +10,10 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Dimensions,
 } from 'react-native';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { chatWithAssistant } from '../../src/services/api/gemini';
@@ -286,7 +289,7 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.xl,
   },
   messageBubble: {
-    maxWidth: '80%',
+    maxWidth: SCREEN_WIDTH * 0.78,
     padding: Spacing.md,
     borderRadius: BorderRadius.lg,
     marginBottom: Spacing.md,
@@ -303,6 +306,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: Spacing.sm,
+    flexWrap: 'nowrap',
   },
   assistantIcon: {
     width: 24,
@@ -311,17 +315,19 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary + '20',
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
   },
   messageText: {
     fontSize: Typography.base,
     lineHeight: 22,
-    flex: 1,
   },
   userText: {
     color: Colors.white,
   },
   assistantText: {
     color: Colors.text,
+    flex: 1,
+    flexShrink: 1,
   },
   suggestionsContainer: {
     marginTop: Spacing.lg,

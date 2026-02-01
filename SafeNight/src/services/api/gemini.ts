@@ -23,31 +23,14 @@ interface GeminiResponse {
 }
 
 const getDemoResponse = (prompt: string): string => {
-  if (prompt.includes('venue') || prompt.includes('bar') || prompt.includes('recommend')) {
-    return 'Based on your preferences, I recommend checking out The Rooftop Bar on Main Street - it has great reviews for safety, well-lit parking, and a friendly atmosphere. Luna Lounge is also popular among women and has dedicated security staff.';
-  }
-
-  // Enhanced Fallbacks for specific topics
   const p = prompt.toLowerCase();
 
-  if (p.includes('ride') || p.includes('uber') || p.includes('taxi') || p.includes('wait')) {
-    return "When waiting for a ride, stay inside a venue or in a well-lit area. Verify the license plate and driver's name before getting in. Share your trip status with a friend through the SafeNight app.";
-  }
+  // Check for structured JSON responses FIRST (before general topic checks)
+  // These prompts expect JSON output, not conversational text
+  // Use VERY specific patterns to avoid matching chat assistant prompts
 
-  if (p.includes('scared') || p.includes('help') || p.includes('follow') || p.includes('unsafe')) {
-    return "If you feel unsafe, head to the nearest open business or public area with people. You can use the SOS button on the home screen to alert your contacts instantly. If you are in immediate danger, call 911.";
-  }
-
-  if (p.includes('friend') || p.includes('group') || p.includes('alone')) {
-    return "It's always safer to stay in pairs or groups (buddy system). If you must separate, agree on a meeting spot and time. Use the 'Check-In' feature to keep each other updated.";
-  }
-
-  if (p.includes('water') || p.includes('drink') || p.includes('sober')) {
-    return "Alternating alcoholic drinks with water helps you stay hydrated and pace yourself. Never leave your drink unattended. If you suspect your drink was spiked, seek help immediately.";
-  }
-
-  // Demo responses for hackathon
-  if (prompt.includes('parse this night plan')) {
+  // Only match parseNightPlan - must have both specific markers
+  if (p.includes('parse this night plan') && p.includes('return only this json')) {
     return JSON.stringify({
       venues: [
         { name: 'The Rooftop Bar', time: '8:00 PM' },
@@ -59,7 +42,8 @@ const getDemoResponse = (prompt: string): string => {
     });
   }
 
-  if (prompt.includes('parse this drink')) {
+  // Only match parseDrink - must have the specific JSON instruction
+  if (p.includes('you are analyzing drinks') && p.includes('only respond with the json')) {
     return JSON.stringify({
       name: 'Margarita',
       alcoholType: 'cocktail',
@@ -68,13 +52,64 @@ const getDemoResponse = (prompt: string): string => {
     });
   }
 
-  if (prompt.includes('BAC') || prompt.includes('blood alcohol')) {
-    return JSON.stringify({
-      bac: 0.06,
-      timeToSober: 180,
-      safetyLevel: 'caution',
-      recommendation: 'You\'re approaching the legal limit. Consider slowing down and drinking water.',
-    });
+  // Only match matchFriends - must have the specific pattern
+  if (p.includes('helping match users for safe group activities') && p.includes('return only a json array')) {
+    return JSON.stringify(['match-1', 'match-2', 'match-3']);
+  }
+
+  // For chat assistant prompts, extract just the user message for keyword matching
+  // The system prompt contains keywords like "venue" and "drink" that would always match
+  let textToCheck = p;
+  if (p.includes('you are safenight ai') && p.includes('user:')) {
+    // Extract just the user message from the chat prompt
+    const userIndex = p.lastIndexOf('user:');
+    const endIndex = p.lastIndexOf('respond as the helpful safenight assistant');
+    if (userIndex !== -1 && endIndex !== -1 && endIndex > userIndex) {
+      textToCheck = p.substring(userIndex + 5, endIndex).trim();
+    } else if (userIndex !== -1) {
+      textToCheck = p.substring(userIndex + 5).trim();
+    }
+  }
+
+  // General conversational responses (for chat assistant)
+  if (textToCheck.includes('venue') || textToCheck.includes('bar') || textToCheck.includes('recommend') || textToCheck.includes('safe nearby') || textToCheck.includes('find me')) {
+    return 'Based on your preferences, I recommend checking out The Rooftop Bar on Main Street - it has great reviews for safety, well-lit parking, and a friendly atmosphere. Luna Lounge is also popular among women and has dedicated security staff.';
+  }
+
+  if (textToCheck.includes('ride') || textToCheck.includes('uber') || textToCheck.includes('taxi') || textToCheck.includes('wait')) {
+    return "When waiting for a ride, stay inside a venue or in a well-lit area. Verify the license plate and driver's name before getting in. Share your trip status with a friend through the SafeNight app.";
+  }
+
+  if (textToCheck.includes('scared') || textToCheck.includes('follow') || textToCheck.includes('unsafe') || textToCheck.includes('danger')) {
+    return "If you feel unsafe, head to the nearest open business or public area with people. You can use the SOS button on the home screen to alert your contacts instantly. If you are in immediate danger, call 911.";
+  }
+
+  if (textToCheck.includes('friend') || textToCheck.includes('group') || textToCheck.includes('alone') || textToCheck.includes('buddy')) {
+    return "It's always safer to stay in pairs or groups (buddy system). If you must separate, agree on a meeting spot and time. Use the 'Check-In' feature to keep each other updated.";
+  }
+
+  if (textToCheck.includes('water') || textToCheck.includes('hydrat') || textToCheck.includes('sober')) {
+    return "Alternating alcoholic drinks with water helps you stay hydrated and pace yourself. Never leave your drink unattended. If you suspect your drink was spiked, seek help immediately.";
+  }
+
+  if (textToCheck.includes('bac') || textToCheck.includes('blood alcohol') || textToCheck.includes('how drunk') || textToCheck.includes("what's my")) {
+    return "To check your BAC, go to the Drinks tab and log what you've had tonight. I'll calculate your estimated blood alcohol level based on your drinks, weight, and time. Remember, the legal limit is 0.08%.";
+  }
+
+  if (textToCheck.includes('drink') || textToCheck.includes('alcohol') || textToCheck.includes('tracking')) {
+    return "You can track your drinks in the Drinks tab. Just tap 'Add Drink' and describe what you're having - I'll estimate the alcohol content and keep track of your intake throughout the night.";
+  }
+
+  if (textToCheck.includes('safety') || textToCheck.includes('tip') || textToCheck.includes('safe')) {
+    return "Stay with your group, keep your phone charged, and share your location with trusted friends. Never leave drinks unattended, and trust your instincts - if something feels off, leave.";
+  }
+
+  if (textToCheck.includes('sos') || textToCheck.includes('emergency') || textToCheck.includes('help')) {
+    return "The SOS button on the home screen instantly alerts your emergency contacts with your location. You can also shake your phone to trigger it discreetly. For immediate danger, always call 911.";
+  }
+
+  if (textToCheck.includes('plan') || textToCheck.includes('evening') || textToCheck.includes('tonight') || textToCheck.includes('going out')) {
+    return "I can help you plan your night! Tell me where you want to go and when, and I'll create a timeline with safety check-ins. You can also invite friends to join your plan.";
   }
 
   return 'I\'m here to help you stay safe tonight! I can help you plan your evening, track drinks, find safe venues, or assist in an emergency. What would you like to know?';
@@ -112,27 +147,12 @@ const callGemini = async (prompt: string): Promise<string> => {
 
 
 export const parseNightPlan = async (input: string): Promise<GeminiPlanResponse> => {
-  const prompt = `You are a helpful assistant for a women's safety app. Please parse this night plan description and extract the relevant information.
-  
-  CONTEXT: The user is likely a student or young adult in Blacksburg, VA (Virginia Tech area).
-  
-  Input: "${input}"
-  
-  INSTRUCTIONS:
-  1. Extract venues and times.
-  2. If times are NOT mentioned, INFER logical times for a night out (e.g., Dinner at 7pm, Pre-game at 9pm, Bar at 10pm).
-  3. Ensure the return time is safe and reasonable (e.g. 1 AM or 2 AM).
-  4. Infer transportation if not specified (default to 'rideshare' or 'walking' if close).
-  
-  Return a JSON object with the following structure:
-  {
-    "venues": [{"name": "venue name", "time": "8:00 PM"}],
-    "departureTime": "7:30 PM",
-    "returnTime": "1:00 AM",
-    "transportation": "rideshare|designated_driver|public_transit|walking"
-  }
-  
-  Only respond with the JSON, no other text.`;
+  const prompt = `Parse this night plan for a safety app. User is in Blacksburg, VA.
+
+Input: "${input}"
+
+Return ONLY this JSON (no markdown):
+{"venues":[{"name":"venue","time":"8:00 PM"}],"departureTime":"7:30 PM","returnTime":"1:00 AM","transportation":"rideshare"}`;
 
   const response = await callGemini(prompt);
 
@@ -142,8 +162,33 @@ export const parseNightPlan = async (input: string): Promise<GeminiPlanResponse>
     return JSON.parse(cleaned);
   } catch (error) {
     console.error('Failed to parse plan JSON:', error, response);
-    // If parsing fails, return empty structure
-    return { venues: [] };
+
+    // Try to extract partial data from truncated JSON
+    const result: GeminiPlanResponse = { venues: [] };
+
+    // Extract venues using regex
+    const venueMatches = response.matchAll(/"name"\s*:\s*"([^"]+)"/g);
+    const timeMatches = [...response.matchAll(/"time"\s*:\s*"([^"]+)"/g)];
+    let i = 0;
+    for (const match of venueMatches) {
+      result.venues.push({
+        name: match[1],
+        time: timeMatches[i]?.[1] || '9:00 PM',
+      });
+      i++;
+    }
+
+    // Extract other fields
+    const deptMatch = response.match(/"departureTime"\s*:\s*"([^"]+)"/);
+    if (deptMatch) result.departureTime = deptMatch[1];
+
+    const retMatch = response.match(/"returnTime"\s*:\s*"([^"]+)"/);
+    if (retMatch) result.returnTime = retMatch[1];
+
+    const transMatch = response.match(/"transportation"\s*:\s*"([^"]+)"/);
+    if (transMatch) result.transportation = transMatch[1];
+
+    return result;
   }
 };
 
