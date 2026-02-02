@@ -1,6 +1,11 @@
 # SafeNight
 
 A women-first mobile safety and social companion app designed for college women to plan nights out safely, track alcohol consumption, receive proactive safety notifications, access SOS features, and connect with trusted women nearby.
+<img width="590" height="1278" alt="Screenshot 2026-02-01 at 11 16 30 AM" src="https://github.com/user-attachments/assets/b665a629-82fc-47ff-8a66-4f6f411fde50" />
+<img width="590" height="1278" alt="Screenshot 2026-02-01 at 11 16 47 AM" src="https://github.com/user-attachments/assets/758d6bbf-010c-4618-a58c-8ed98ed09438" />
+<img width="590" height="1278" alt="Screenshot 2026-02-01 at 11 16 57 AM" src="https://github.com/user-attachments/assets/20b3d73e-7825-4333-9ddc-f1a1b8300fdf" />
+<img width="590" height="1278" alt="Screenshot 2026-02-01 at 11 17 06 AM" src="https://github.com/user-attachments/assets/0dd2439d-325d-43c9-8203-a227ca7478ec" />
+<img width="590" height="1278" alt="Screenshot 2026-02-01 at 11 17 20 AM" src="https://github.com/user-attachments/assets/73d1897d-4b8f-4532-b840-d2eeb54c0b41" />
 
 ## Features
 
